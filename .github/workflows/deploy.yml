@@ -93,12 +93,8 @@ jobs:
             NEW_FORK="$NEW_FORK" URL="$SERVER_JAR_URL"
             bash scripts/reinstall_server.sh --new_fork "$NEW_FORK" --url "$SERVER_JAR_URL"
 
-            # 5. Restore worlds (optional specific backup)
-            if [ -n "$BACKUP_TO_RESTORE" ]; then
-              bash scripts/restore_worlds.sh --backup "$BACKUP_TO_RESTORE"
-            else
-              bash scripts/restore_worlds.sh
-            fi
+            # 5. Restore worlds (optional specific backup) — single-line if to avoid wrapper exiting on false condition
+            if [ -n "$BACKUP_TO_RESTORE" ]; then bash scripts/restore_worlds.sh --backup "$BACKUP_TO_RESTORE"; else bash scripts/restore_worlds.sh; fi
 
             # 6-7. Generate dynamic config(s) from agreed env vars and sync
             bash scripts/generate_drts_config.sh
