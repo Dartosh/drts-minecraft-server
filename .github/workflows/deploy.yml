@@ -68,9 +68,11 @@ jobs:
             export REDIS_PORT REDIS_DATA_DIR
             docker compose -f deploy/docker-compose.yml up -d
 
-            # Prepare dirs
+            # Prepare dirs and avoid self-referencing symlink
             mkdir -p "$MINECRAFT_DIR"
-            ln -snf "$MINECRAFT_DIR" "$REMOTE_APP_DIR/server"
+            if [ "$MINECRAFT_DIR" != "$REMOTE_APP_DIR/server" ]; then
+              ln -snf "$MINECRAFT_DIR" "$REMOTE_APP_DIR/server"
+            fi
 
             # 3. Backup worlds
             bash scripts/backup_worlds.sh
