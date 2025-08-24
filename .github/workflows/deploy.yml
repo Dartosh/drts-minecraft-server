@@ -26,7 +26,7 @@ jobs:
           if [ -z "$BRANCH_INPUT" ]; then BRANCH_INPUT="${{ github.ref_name }}"; fi
           echo "branch=$BRANCH_INPUT" >> "$GITHUB_OUTPUT"
           echo "backup=${{ github.event.inputs.backup }}" >> "$GITHUB_OUTPUT"
-          echo "repo_ssh=git@github.com:${{ github.repository }}.git" >> "$GITHUB_OUTPUT"
+          echo "repo_https=https://github.com/${{ github.repository }}.git" >> "$GITHUB_OUTPUT"
 
       - name: SSH and deploy
         uses: appleboy/ssh-action@v1.0.3
@@ -105,7 +105,7 @@ jobs:
         env:
           REMOTE_APP_DIR: ${{ secrets.REMOTE_APP_DIR }}
           MINECRAFT_DIR: ${{ secrets.MINECRAFT_DIR }}
-          GIT_REPO: ${{ steps.vars.outputs.repo_ssh }}
+          GIT_REPO: ${{ steps.vars.outputs.repo_https }}
           GIT_BRANCH: ${{ steps.vars.outputs.branch }}
           BACKUP_TO_RESTORE: ${{ steps.vars.outputs.backup }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
