@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: minecraft-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ${POSTGRES_DATA_DIR:-../data/postgres}:/var/lib/postgresql/data
+      - ./postgres_init.sql:/docker-entrypoint-initdb.d/postgres_init.sql:ro
+    ports:
+      - ${POSTGRES_PORT:-5432}:5432
+    networks:
+      - minecraft_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: minecraft-redis
+    restart: unless-stopped
+    command: ["redis-server"]
+    volumes:
+      - ${REDIS_DATA_DIR:-../data/redis}:/data
+    ports:
+      - ${REDIS_PORT:-6379}:6379
+    networks:
+      - minecraft_net
+
+networks:
+  minecraft_net: {}

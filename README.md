@@ -1,47 +1,95 @@
-## Деплой Minecraft сервера через GitHub Actions
-
-Этот репозиторий содержит пайплайн GitHub Actions для деплоя на удалённый сервер по SSH, установки (или обновления) PostgreSQL и Redis в Docker, а также синхронизации конфигураций, плагинов и серверного `.jar`.
+## Скрипт установки сервера Minecraft
 
 ### Структура репозитория
 
-- `plugins/` — скомпилированные `.jar` плагинов. Копируются в `server/plugins/` на удалённой машине.
-- `server/` — `.jar` файла(ы) сервера. Копируются в корень установленного сервера.
-- `configs/` — директории и файлы конфигураций, которые мержатся в папку установленного сервера.
-- `.github/workflows/deploy.yml` — workflow GitHub Actions.
-- `scripts/remote_deploy.sh` — скрипт, запускаемый на удалённой машине.
+- `plugins/` — `.jar` плагинов
+- `server/` — директория установленного сервера и jar-файл `server.jar`
+- `configs/` — конфигурации
+- `scripts/backup_worlds.sh` — сохраняет текущие миры из `server/` в `maps/<timestamp>/`
+- `scripts/reinstall_server.sh` — скачивает и устанавливает `server.jar`, проставляет `eula=true`
+- `scripts/restore_latest_worlds.sh` — копирует последний снапшот из `maps/<timestamp>/` в `server/`
+- `scripts/start_server.sh` — запуск сервера
+- `scripts/install_systemd_service.sh` — установка/пересоздание systemd-сервиса для автозапуска
+- `scripts/backup_and_prune.sh` — бэкап миров и удаление старых снапшотов (по умолчанию хранит 4)
+- `scripts/install_cron_backup.sh` — установка/пересоздание cron-задачи (каждые 12 часов)
+- `scripts/sync_configs.sh` — копирует конфиги из `configs/` в `server/` с заменой
+- `scripts/sync_plugins.sh` — копирует плагины из `plugins/` в `server/plugins/` с заменой
+- `maps/` — хранилище миров. На каждый запуск создаётся снапшот `maps/<timestamp>/...` из текущих миров сервера. При установке копируются миры из последнего `maps/<timestamp>/` в `server/`.
 
-### Секреты репозитория (Settings → Secrets and variables → Actions)
+### Использование
 
-Обязательные:
+Примеры:
 
-- `SSH_HOST` — адрес удалённого сервера
-- `SSH_USER` — пользователь SSH
-- `SSH_PRIVATE_KEY` — приватный ключ SSH (PEM)
-- `REMOTE_APP_DIR` — путь до директории приложения на сервере, например `/opt/minecraft/app`
-- `MINECRAFT_DIR` — путь до установленного сервера, например `/opt/minecraft/server`
-- `POSTGRES_PASSWORD` — пароль PostgreSQL
+1. Снять бэкап миров:
 
-Опциональные (имеют значения по умолчанию):
+```bash
+bash scripts/backup_worlds.sh
+```
 
-- `SSH_PORT` — порт SSH (по умолчанию `22`)
-- `POSTGRES_USER` — имя пользователя БД (по умолчанию `minecraft`)
-- `POSTGRES_DB` — имя БД (по умолчанию `minecraft`)
-- `REDIS_PASSWORD` — пароль Redis (если не задан, Redis запускается без пароля)
+2. Переустановить сервер:
 
-### Как работает деплой
+```bash
+bash scripts/reinstall_server.sh --new_fork Paper --url "https://example.com/paper-X.Y.Z.jar"
+```
 
-1. Триггер: push в `main` или ручной запуск `workflow_dispatch`.
-2. Экшен подключается к серверу по SSH.
-3. Устанавливает `git` и `docker` при необходимости.
-4. Клонирует/обновляет репозиторий на сервере в `REMOTE_APP_DIR`.
-5. Запускает `scripts/remote_deploy.sh`, который:
-   - поднимает `postgres:15-alpine` и `redis:7-alpine` в Docker с volume-папками
-   - синхронизирует `configs/` → `MINECRAFT_DIR/`
-   - синхронизирует `plugins/` → `MINECRAFT_DIR/plugins/`
-   - копирует `server/*.jar` → `MINECRAFT_DIR/`
+3. Восстановить последний бэкап миров на сервер:
 
-После деплоя перезапустите процесс/сервис Minecraft сервера (systemd/screen/tmux) для применения изменений.
+```bash
+bash scripts/restore_latest_worlds.sh
+```
 
-### Ручной запуск для другой ветки
+4. Установить сервис (Ubuntu 24.04, требует sudo):
 
-В `workflow_dispatch` можно указать `branch`. По умолчанию — текущая ветка пуша.
+```bash
+sudo bash scripts/install_systemd_service.sh
+```
+
+5. Установить cron-задачу (каждые 12 часов бэкап + чистка до 4 снапшотов):
+
+```bash
+bash scripts/install_cron_backup.sh
+```
+
+6. Синхронизировать конфиги в сервер:
+
+```bash
+bash scripts/sync_configs.sh
+```
+
+7. Синхронизировать плагины в сервер:
+
+```bash
+bash scripts/sync_plugins.sh
+```
+
+Опции:
+
+- `--service-name` — имя сервиса (по умолчанию `minecraft-server-service`)
+- `--user` — под каким пользователем запускать
+- `--workdir` — путь к корню репозитория (где `scripts/`)
+
+Параметры:
+
+- `--new_fork` — один из: `Bukkit`, `Spigot`, `Paper`, `Tuinity`, `Purpur`
+- `--url` — ссылка на скачивание нового server jar
+- `--old_fork` — (опционально) один из тех же значений; влияет на стратегию поиска миров (скрипт авто-детектит по `level.dat` и `server.properties`, параметр служит подсказкой)
+
+Что делает:
+
+- backup_worlds.sh — создаёт снапшот текущих миров сервера в `maps/<timestamp>/...`
+- reinstall_server.sh — скачивает `server.jar` и создаёт `eula.txt` (если отсутствует)
+- restore_latest_worlds.sh — переносит последний бэкап миров из `maps/<timestamp>/` в `server/`
+
+Цепочка обновления версий:
+
+1. Снять бэкап текущих миров (`backup_worlds.sh`).
+2. Переустановить сервер (`reinstall_server.sh`).
+3. Перенести последний бэкап миров на сервер (`restore_latest_worlds.sh`).
+
+### Запуск
+
+После установки:
+
+```bash
+bash scripts/start_server.sh
+```

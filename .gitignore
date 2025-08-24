@@ -1,0 +1,10 @@
+.DS_Store
+.env
+/server/*
+!/server/.gitkeep
+/maps/*
+!/maps/.gitkeep
+/plugins/*
+!/plugins/DRTSAuthPlugin.jar
+!/plugins/DRTSWhitelistPlugin.jar
+!/plugins/.gitkeep

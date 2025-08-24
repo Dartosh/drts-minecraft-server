@@ -1,92 +1,60 @@
 name: Deploy Minecraft Server
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to deploy"
+        description: Branch to deploy
+        required: false
+        default: main
+      backup:
+        description: Optional backup timestamp to restore
         required: false
         default: ""
+  push:
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Prepare variables
-        id: prep
+      - name: Set variables
+        id: vars
         run: |
           BRANCH_INPUT="${{ github.event.inputs.branch }}"
-          if [ -z "$BRANCH_INPUT" ]; then
-            echo "branch=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "branch=$BRANCH_INPUT" >> "$GITHUB_OUTPUT"
-          fi
+          if [ -z "$BRANCH_INPUT" ]; then BRANCH_INPUT="${{ github.ref_name }}"; fi
+          echo "branch=$BRANCH_INPUT" >> "$GITHUB_OUTPUT"
+          echo "backup=${{ github.event.inputs.backup }}" >> "$GITHUB_OUTPUT"
           echo "repo_ssh=git@github.com:${{ github.repository }}.git" >> "$GITHUB_OUTPUT"
 
-      - name: SSH into server and deploy
+      - name: SSH and deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
           script_stop: true
           envs: |
-            REMOTE_APP_DIR,MINECRAFT_DIR,POSTGRES_USER,POSTGRES_DB,POSTGRES_PASSWORD,REDIS_PASSWORD,GIT_REPO,GIT_BRANCH
-          env:
-            REMOTE_APP_DIR: ${{ secrets.REMOTE_APP_DIR }}
-            MINECRAFT_DIR: ${{ secrets.MINECRAFT_DIR }}
-            POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-            POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-            POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-            REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-            GIT_REPO: ${{ steps.prep.outputs.repo_ssh }}
-            GIT_BRANCH: ${{ steps.prep.outputs.branch }}
+            REMOTE_APP_DIR,MINECRAFT_DIR,GIT_REPO,GIT_BRANCH,BACKUP_TO_RESTORE,
+            POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,POSTGRES_PORT,POSTGRES_DATA_DIR,
+            REDIS_PORT,REDIS_DATA_DIR
           script: |
             set -euxo pipefail
 
-            # Defaults for directories if not provided
             REMOTE_APP_DIR="${REMOTE_APP_DIR:-/opt/minecraft/app}"
             MINECRAFT_DIR="${MINECRAFT_DIR:-/opt/minecraft/server}"
 
-            # Defaults for databases if not provided
-            POSTGRES_USER="${POSTGRES_USER:-minecraft}"
-            POSTGRES_DB="${POSTGRES_DB:-minecraft}"
-            if [ -z "${POSTGRES_PASSWORD:-}" ]; then
-              echo "POSTGRES_PASSWORD secret is required" >&2
-              exit 1
-            fi
-
-            # Ensure base tools
+            # Ensure required packages
             if ! command -v git >/dev/null 2>&1; then
-              if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get update -y
-                sudo apt-get install -y git curl
-              elif command -v yum >/dev/null 2>&1; then
-                sudo yum install -y git curl
-              elif command -v dnf >/dev/null 2>&1; then
-                sudo dnf install -y git curl
-              else
-                echo "Unsupported package manager. Please install git manually." >&2
-                exit 1
-              fi
+              sudo apt-get update -y
+              sudo apt-get install -y git curl docker.io docker-compose-plugin
+              sudo systemctl enable --now docker || true
             fi
 
-            # Ensure Docker
-            if ! command -v docker >/dev/null 2>&1; then
-              curl -fsSL https://get.docker.com | sh
-              sudo systemctl enable docker || true
-              sudo systemctl start docker || true
-            fi
-
-            # Create directories
-            sudo mkdir -p "$REMOTE_APP_DIR" "$MINECRAFT_DIR"
-            sudo chown -R "$USER":"$USER" "$REMOTE_APP_DIR" "$MINECRAFT_DIR"
-
-            # Clone or update repository on remote
+            # Clone or update repo
+            sudo mkdir -p "$REMOTE_APP_DIR"
+            sudo chown -R "$USER":"$USER" "$REMOTE_APP_DIR"
             if [ ! -d "$REMOTE_APP_DIR/.git" ]; then
               git clone "$GIT_REPO" "$REMOTE_APP_DIR"
             fi
@@ -95,9 +63,57 @@ jobs:
             git checkout -q "$GIT_BRANCH" || git checkout -q -b "$GIT_BRANCH" "origin/$GIT_BRANCH"
             git reset --hard "origin/$GIT_BRANCH"
 
-            # Make sure the deploy script is executable
-            chmod +x scripts/remote_deploy.sh
+            # 1-2. Ensure Postgres/Redis via docker compose with env from secrets
+            export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_PORT POSTGRES_DATA_DIR
+            export REDIS_PORT REDIS_DATA_DIR
+            docker compose -f deploy/docker-compose.yml up -d
 
-            # Export envs for the script and run
-            export REMOTE_APP_DIR MINECRAFT_DIR POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD REDIS_PASSWORD
-            ./scripts/remote_deploy.sh
+            # Prepare dirs
+            mkdir -p "$MINECRAFT_DIR"
+            ln -snf "$MINECRAFT_DIR" "$REMOTE_APP_DIR/server"
+
+            # 3. Backup worlds
+            bash scripts/backup_worlds.sh
+
+            # 4. Reinstall server (expects --new_fork and --url from secrets or hardcode here)
+            if [ -z "${NEW_FORK:-}" ] || [ -z "${SERVER_JAR_URL:-}" ]; then
+              echo "Set NEW_FORK and SERVER_JAR_URL as Action secrets/vars" >&2
+              exit 1
+            fi
+            NEW_FORK="$NEW_FORK" URL="$SERVER_JAR_URL"
+            bash scripts/reinstall_server.sh --new_fork "$NEW_FORK" --url "$SERVER_JAR_URL"
+
+            # 5. Restore worlds (optional specific backup)
+            if [ -n "$BACKUP_TO_RESTORE" ]; then
+              bash scripts/restore_worlds.sh --backup "$BACKUP_TO_RESTORE"
+            else
+              bash scripts/restore_worlds.sh
+            fi
+
+            # 6-7. Generate dynamic config(s) from agreed env vars and sync
+            bash scripts/generate_drts_config.sh
+
+            bash scripts/sync_configs.sh
+            bash scripts/sync_plugins.sh
+
+            # 8. Install cron backup
+            bash scripts/install_cron_backup.sh
+
+            # 9. Install systemd service
+            sudo bash scripts/install_systemd_service.sh --workdir "$REMOTE_APP_DIR"
+
+        env:
+          REMOTE_APP_DIR: ${{ secrets.REMOTE_APP_DIR }}
+          MINECRAFT_DIR: ${{ secrets.MINECRAFT_DIR }}
+          GIT_REPO: ${{ steps.vars.outputs.repo_ssh }}
+          GIT_BRANCH: ${{ steps.vars.outputs.branch }}
+          BACKUP_TO_RESTORE: ${{ steps.vars.outputs.backup }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+          POSTGRES_DATA_DIR: ${{ secrets.POSTGRES_DATA_DIR }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          REDIS_DATA_DIR: ${{ secrets.REDIS_DATA_DIR }}
+          NEW_FORK: ${{ vars.NEW_FORK }}
+          SERVER_JAR_URL: ${{ vars.SERVER_JAR_URL }}
