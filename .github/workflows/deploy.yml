@@ -11,6 +11,14 @@ on:
         description: Optional backup timestamp to restore
         required: false
         default: ""
+      new_fork:
+        description: Server fork (Bukkit/Spigot/Paper/Tuinity/Purpur)
+        required: false
+        default: ""
+      server_jar_url:
+        description: Direct URL to server .jar
+        required: false
+        default: ""
   push:
     branches:
       - main
@@ -38,7 +46,7 @@ jobs:
           envs: |
             REMOTE_APP_DIR,MINECRAFT_DIR,GIT_REPO,GIT_BRANCH,BACKUP_TO_RESTORE,
             POSTGRES_USER,POSTGRES_PASSWORD,POSTGRES_DB,POSTGRES_PORT,POSTGRES_DATA_DIR,
-            REDIS_PORT,REDIS_DATA_DIR
+            REDIS_PORT,REDIS_DATA_DIR,NEW_FORK,SERVER_JAR_URL
           script: |
             set -euxo pipefail
 
@@ -117,5 +125,5 @@ jobs:
           POSTGRES_DATA_DIR: ${{ secrets.POSTGRES_DATA_DIR }}
           REDIS_PORT: ${{ secrets.REDIS_PORT }}
           REDIS_DATA_DIR: ${{ secrets.REDIS_DATA_DIR }}
-          NEW_FORK: ${{ vars.NEW_FORK }}
-          SERVER_JAR_URL: ${{ vars.SERVER_JAR_URL }}
+          NEW_FORK: ${{ github.event.inputs.new_fork || vars.NEW_FORK || secrets.NEW_FORK }}
+          SERVER_JAR_URL: ${{ github.event.inputs.server_jar_url || vars.SERVER_JAR_URL || secrets.SERVER_JAR_URL }}
