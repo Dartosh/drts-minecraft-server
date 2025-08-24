@@ -72,6 +72,23 @@ jobs:
             git reset --hard "origin/$GIT_BRANCH"
 
             # 1-2. Ensure Postgres/Redis via docker compose with env from secrets
+            # Prepare data dirs with correct ownership to avoid permission errors
+            POSTGRES_DATA_DIR_OVERRIDE="${POSTGRES_DATA_DIR:-}"
+            if [ -z "$POSTGRES_DATA_DIR_OVERRIDE" ]; then
+              POSTGRES_DATA_DIR_OVERRIDE="$(cd "$REMOTE_APP_DIR" && cd .. && pwd)/data/postgres"
+              export POSTGRES_DATA_DIR="$POSTGRES_DATA_DIR_OVERRIDE"
+            fi
+            sudo mkdir -p "$POSTGRES_DATA_DIR"
+            # postgres image runs as uid 999 by default
+            sudo chown -R 999:999 "$POSTGRES_DATA_DIR"
+
+            REDIS_DATA_DIR_OVERRIDE="${REDIS_DATA_DIR:-}"
+            if [ -z "$REDIS_DATA_DIR_OVERRIDE" ]; then
+              REDIS_DATA_DIR_OVERRIDE="$(cd "$REMOTE_APP_DIR" && cd .. && pwd)/data/redis"
+              export REDIS_DATA_DIR="$REDIS_DATA_DIR_OVERRIDE"
+            fi
+            sudo mkdir -p "$REDIS_DATA_DIR"
+
             export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_PORT POSTGRES_DATA_DIR
             export REDIS_PORT REDIS_DATA_DIR
             docker compose -f deploy/docker-compose.yml up -d
