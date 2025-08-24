@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Wrapper to restore worlds; forwards to restore_latest_worlds.sh
-# Usage:
-#   scripts/restore_worlds.sh [--backup <timestamp_folder>]
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-exec "$SCRIPT_DIR/restore_latest_worlds.sh" "$@"
-
-#!/usr/bin/env bash
-set -euo pipefail
-
 # Restores worlds from maps/<timestamp>/ into server/
 # Usage:
-#   scripts/restore_latest_worlds.sh [--backup <timestamp_folder>]
+#   scripts/restore_worlds.sh [--backup <timestamp_folder>]
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -42,7 +31,6 @@ mkdir -p "$SERVER_DIR" "$MAPS_DIR"
 
 src_maps_dir=""
 if [[ -n "$backup_folder" ]]; then
-  # Explicit folder selected
   candidate="$MAPS_DIR/${backup_folder%/}"
   if [[ -d "$candidate" ]]; then
     src_maps_dir="$candidate"
@@ -51,7 +39,6 @@ if [[ -n "$backup_folder" ]]; then
     exit 1
   fi
 else
-  # Pick latest by lexicographic sort (timestamps like YYYYmmdd-HHMMSS sort correctly)
   latest_snapshot=""
   if ls -1d "$MAPS_DIR"/*/ >/dev/null 2>&1; then
     latest_snapshot="$(ls -1d "$MAPS_DIR"/*/ 2>/dev/null | sed 's:/*$::' | awk -F/ '{print $NF}' | sort | tail -n 1)"
