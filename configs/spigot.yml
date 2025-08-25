@@ -20,7 +20,7 @@ messages:
 advancements:
   disable-saving: false
   disabled:
-  - minecraft:story/disabled
+    - minecraft:story/disabled
 settings:
   bungeecord: false
   save-user-cache-on-stop-only: false
@@ -32,7 +32,7 @@ settings:
   timeout-time: 60
   restart-on-crash: true
   restart-script: ./start.sh
-  netty-threads: 4
+  netty-threads: 2
   attribute:
     maxAbsorption:
       max: 2048.0
@@ -49,13 +49,13 @@ commands:
   tab-complete: 0
   send-namespaced: true
   spam-exclusions:
-  - /skill
+    - /skill
   silent-commandblock-console: false
   replace-commands:
-  - setblock
-  - summon
-  - testforblock
-  - tellraw
+    - setblock
+    - summon
+    - testforblock
+    - tellraw
   log: true
 world-settings:
   default:
@@ -63,12 +63,12 @@ world-settings:
     view-distance: default
     simulation-distance: default
     merge-radius:
-      item: 0.5
-      exp: -1
-    mob-spawn-range: 8
-    item-despawn-rate: 6000
-    arrow-despawn-rate: 1200
-    trident-despawn-rate: 1200
+      item: 3.5
+      exp: 3.5
+    mob-spawn-range: 6
+    item-despawn-rate: 8000
+    arrow-despawn-rate: 600
+    trident-despawn-rate: 600
     zombie-aggressive-towards-villager: true
     nerf-spawner-mobs: false
     enable-zombie-pigmen-portal-spawns: true
@@ -100,26 +100,26 @@ world-settings:
       glowberry-modifier: 100
       pitcherplant-modifier: 100
     entity-activation-range:
-      animals: 32
-      monsters: 32
-      raiders: 64
-      misc: 16
-      water: 16
-      villagers: 32
-      flying-monsters: 32
+      animals: 24
+      monsters: 24
+      raiders: 48
+      misc: 12
+      water: 12
+      villagers: 24
+      flying-monsters: 24
       wake-up-inactive:
-        animals-max-per-tick: 4
-        animals-every: 1200
-        animals-for: 100
-        monsters-max-per-tick: 8
-        monsters-every: 400
-        monsters-for: 100
-        villagers-max-per-tick: 4
-        villagers-every: 600
-        villagers-for: 100
-        flying-monsters-max-per-tick: 8
-        flying-monsters-every: 200
-        flying-monsters-for: 100
+        animals-max-per-tick: 2
+        animals-every: 1600
+        animals-for: 60
+        monsters-max-per-tick: 4
+        monsters-every: 600
+        monsters-for: 60
+        villagers-max-per-tick: 2
+        villagers-every: 800
+        villagers-for: 60
+        flying-monsters-max-per-tick: 4
+        flying-monsters-every: 400
+        flying-monsters-for: 60
       villagers-work-immunity-after: 100
       villagers-work-immunity-for: 20
       villagers-active-for-panic: true
@@ -127,16 +127,16 @@ world-settings:
       ignore-spectators: false
     thunder-chance: 100000
     entity-tracking-range:
-      players: 128
-      animals: 96
-      monsters: 96
-      misc: 96
-      display: 128
-      other: 64
+      players: 96
+      animals: 64
+      monsters: 64
+      misc: 64
+      display: 96
+      other: 48
     ticks-per:
-      hopper-transfer: 8
-      hopper-check: 1
-    hopper-amount: 1
+      hopper-transfer: 12
+      hopper-check: 2
+    hopper-amount: 3
     hopper-can-load-chunks: false
     dragon-death-sound-radius: 0
     seed-village: 10387312
