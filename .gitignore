@@ -7,4 +7,5 @@
 /plugins/*
 !/plugins/DRTSAuthPlugin.jar
 !/plugins/DRTSWhitelistPlugin.jar
+!/plugins/DRTSSpawnTeleportPlugin.jar
 !/plugins/.gitkeep

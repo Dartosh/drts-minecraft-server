@@ -44,7 +44,10 @@ settings:
   clamp-attributes: true
   limit-armor: true
   player-deaths-always-show-item: false
-  startup-commands: []
+  startup-commands:
+    - "execute in minecraft:overworld run gamerule playersSleepingPercentage 0"
+    - "execute in minecraft:the_nether run gamerule playersSleepingPercentage 0"
+    - "execute in minecraft:the_end run gamerule playersSleepingPercentage 0"
   broadcasts:
     advancement:
       only-broadcast-to-affected-player: false
