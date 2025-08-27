@@ -116,7 +116,22 @@ fi
 
 echo "Reloading systemd daemon"
 if [[ "$SCOPE" == "user" ]]; then
-  "${SYSTEMCTL_CMD[@]}" daemon-reload || true
+  if ! "${SYSTEMCTL_CMD[@]}" daemon-reload; then
+    if [[ "$CRON_FALLBACK" == true ]]; then
+      echo "systemd --user not available. Installing cron @reboot fallback..."
+      mkdir -p "$(dirname "$UNIT_PATH")" >/dev/null 2>&1 || true
+      CRON_LINE="@reboot \"$START_SCRIPT\""
+      # Install or update crontab entry idempotently
+      (crontab -l 2>/dev/null | grep -v -F "$CRON_LINE"; echo "$CRON_LINE") | crontab -
+      # Start now in background for current boot
+      nohup "$START_SCRIPT" >/dev/null 2>&1 < /dev/null &
+      echo "Cron fallback installed and server started (nohup)."
+      exit 0
+    else
+      echo "systemd --user not available and --cron-fallback not set." 1>&2
+      exit 1
+    fi
+  fi
 else
   sudo_run "${SYSTEMCTL_CMD[@]}" daemon-reload
 fi
