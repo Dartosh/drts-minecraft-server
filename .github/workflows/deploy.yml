@@ -117,11 +117,8 @@ jobs:
             bash scripts/sync_configs.sh
             bash scripts/sync_plugins.sh
 
-            # 8. Install cron backup
+            # 8. Install cron backup (user-level)
             bash scripts/install_cron_backup.sh
-
-            # 9. Install systemd service
-            bash scripts/install_systemd_service.sh --workdir "$REMOTE_APP_DIR"
 
         env:
           REMOTE_APP_DIR: ${{ secrets.REMOTE_APP_DIR }}
@@ -144,7 +141,7 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: root
-          key: ${{ secrets.SSH_ROOT_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           envs: |
             REMOTE_APP_DIR
