@@ -55,14 +55,14 @@ jobs:
 
             # Ensure required packages
             if ! command -v git >/dev/null 2>&1; then
-              sudo apt-get update -y
-              sudo apt-get install -y git curl docker.io docker-compose-plugin
-              sudo systemctl enable --now docker || true
+              apt-get update -y
+              apt-get install -y git curl docker.io docker-compose-plugin
+              systemctl enable --now docker || true
             fi
 
             # Clone or update repo
-            sudo mkdir -p "$REMOTE_APP_DIR"
-            sudo chown -R "$USER":"$USER" "$REMOTE_APP_DIR"
+            mkdir -p "$REMOTE_APP_DIR"
+            chown -R "$USER":"$USER" "$REMOTE_APP_DIR"
             if [ ! -d "$REMOTE_APP_DIR/.git" ]; then
               git clone "$GIT_REPO" "$REMOTE_APP_DIR"
             fi
@@ -78,16 +78,14 @@ jobs:
               POSTGRES_DATA_DIR_OVERRIDE="$(cd "$REMOTE_APP_DIR" && cd .. && pwd)/data/postgres"
               export POSTGRES_DATA_DIR="$POSTGRES_DATA_DIR_OVERRIDE"
             fi
-            sudo mkdir -p "$POSTGRES_DATA_DIR"
-            # postgres image runs as uid 999 by default
-            sudo chown -R 999:999 "$POSTGRES_DATA_DIR"
+            mkdir -p "$POSTGRES_DATA_DIR"
 
             REDIS_DATA_DIR_OVERRIDE="${REDIS_DATA_DIR:-}"
             if [ -z "$REDIS_DATA_DIR_OVERRIDE" ]; then
               REDIS_DATA_DIR_OVERRIDE="$(cd "$REMOTE_APP_DIR" && cd .. && pwd)/data/redis"
               export REDIS_DATA_DIR="$REDIS_DATA_DIR_OVERRIDE"
             fi
-            sudo mkdir -p "$REDIS_DATA_DIR"
+            mkdir -p "$REDIS_DATA_DIR"
 
             export POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_PORT POSTGRES_DATA_DIR
             export REDIS_PORT REDIS_DATA_DIR
@@ -123,7 +121,7 @@ jobs:
             bash scripts/install_cron_backup.sh
 
             # 9. Install systemd service
-            sudo bash scripts/install_systemd_service.sh --workdir "$REMOTE_APP_DIR"
+            bash scripts/install_systemd_service.sh --workdir "$REMOTE_APP_DIR"
 
         env:
           REMOTE_APP_DIR: ${{ secrets.REMOTE_APP_DIR }}
