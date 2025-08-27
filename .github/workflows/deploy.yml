@@ -138,3 +138,28 @@ jobs:
           REDIS_DATA_DIR: ${{ secrets.REDIS_DATA_DIR }}
           NEW_FORK: ${{ github.event.inputs.new_fork || vars.NEW_FORK || secrets.NEW_FORK }}
           SERVER_JAR_URL: ${{ github.event.inputs.server_jar_url || vars.SERVER_JAR_URL || secrets.SERVER_JAR_URL }}
+
+      - name: Install and start systemd service
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: root
+          key: ${{ secrets.SSH_ROOT_PRIVATE_KEY }}
+          script_stop: true
+          envs: |
+            REMOTE_APP_DIR
+          script: |
+            set -euxo pipefail
+
+            REMOTE_APP_DIR="${REMOTE_APP_DIR:-/opt/minecraft/app}"
+
+            # Install/refresh service as root and start it (absolute paths; no reliance on cwd)
+            if [ ! -x "$REMOTE_APP_DIR/scripts/install_systemd_service.sh" ]; then
+              chmod +x "$REMOTE_APP_DIR/scripts/install_systemd_service.sh" || true
+            fi
+            bash "$REMOTE_APP_DIR/scripts/install_systemd_service.sh" --service-name minecraft-server-service --user minecraft --workdir "$REMOTE_APP_DIR"
+            systemctl daemon-reload
+            systemctl enable --now minecraft-server-service
+            systemctl status minecraft-server-service --no-pager | cat
+        env:
+          REMOTE_APP_DIR: ${{ secrets.REMOTE_APP_DIR }}
